@@ -28,9 +28,9 @@ def seq_bn(tensor,seq_lens):
 
 
 system = 'local'
-test_path = '../../Data/OpenSLR/data_voip_en/test'
-train_path = '../../Data/OpenSLR/data_voip_en/train'
-val_path = '../../Data/OpenSLR/data_voip_en/dev'
+test_path = '../Data/OpenSLR/data_voip_en/test'
+train_path = '../Data/OpenSLR/data_voip_en/train'
+val_path = '../Data/OpenSLR/data_voip_en/dev'
 
 #-----------RNN Configuration-----------
 batch_size = 4
