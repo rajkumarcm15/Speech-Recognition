@@ -53,8 +53,7 @@ class Data:
                  mfcc_coeff = 26,
                  frame_overlap_flag=False,
                  ms_to_sample=20,
-                 overlap_ms=10,
-                 training=True):
+                 overlap_ms=10):
 
         self.batch = batch_size
         self.mfcc_coeff = mfcc_coeff
@@ -69,10 +68,7 @@ class Data:
         else:
             self.files = np.load(filelist_filename)
         self.safe_training_files = self.files
-        if training:
-            self.files = self.files[:5]
-        else:
-            self.files = self.files[5:10]
+        self.files = self.files[:5]
         self.n_files = len(self.files)
 
         # Assuming the whole batch would have the same properties
