@@ -40,7 +40,7 @@ hidden_size = 250
 num_units = hidden_size
 momentum=0.9
 max_grad_norm = 10
-keep_prob = 0.5
+
 val_batch_size = 4
 epochs = 150
 
@@ -95,6 +95,7 @@ with graph.as_default():
     # Graph creation
     graph_start = time.time()
     lr = tf.placeholder(dtype=tf.float32, shape=[])
+    keep_prob = tf.placeholder(dtype=tf.float32, shape=[])
     seq_inputs = tf.placeholder(tf.float32, shape=[None,batch_size,frame_length], name="sequence_inputs")
     seq_lens = tf.placeholder(shape=[batch_size],dtype=tf.int32)
     seq_inputs = seq_bn(seq_inputs,seq_lens)
@@ -105,7 +106,7 @@ with graph.as_default():
                                       use_peepholes=use_peephole,
                                       initializer=initializer,
                                       state_is_tuple=True)
-
+    forward = tf.nn.rnn_cell.DropoutWrapper(cell=forward,output_keep_prob=keep_prob)
     forward = tf.nn.rnn_cell.MultiRNNCell([forward] * n_layers, state_is_tuple=True)
 
     backward = tf.nn.rnn_cell.LSTMCell(num_units=num_units,
@@ -113,7 +114,7 @@ with graph.as_default():
                                        use_peepholes=use_peephole,
                                        initializer=initializer,
                                        state_is_tuple=True)
-
+    backward = tf.nn.rnn_cell.DropoutWrapper(cell=backward, output_keep_prob=keep_prob)
     backward = tf.nn.rnn_cell.MultiRNNCell([backward] * n_layers, state_is_tuple=True)
 
     [fw_out,bw_out], _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=forward, cell_bw=backward, inputs=seq_inputs,
@@ -216,7 +217,7 @@ with graph.as_default():
                         n_frames = np.reshape(n_frames,[-1])
                         feed = {seq_inputs: train_data, indices:targ_indices,
                                 values:targ_values, shape:targ_shape,
-                                seq_lens:n_frames,lr:_lr_}
+                                seq_lens:n_frames,lr:_lr_,keep_prob:0.7}
 
                     # Evaluate loss value, decoded transcript, and log probability
                     _,loss_val,deco,l_pr,err_rt_tr = sess.run([train_step,loss,decoded,log_prob,error_rate],
@@ -233,7 +234,7 @@ with graph.as_default():
                         n_frames = np.reshape(n_frames, [-1])
                         feed = {seq_inputs: val_data, indices: targ_indices,
                                 values: targ_values, shape: targ_shape,
-                                seq_lens: n_frames,lr:_lr_}
+                                seq_lens: n_frames,lr:_lr_,keep_prob:1}
 
                     vl_loss, l_val_pr, err_rt_vl = sess.run([loss, log_prob, error_rate], feed_dict=feed)
 
