@@ -377,13 +377,14 @@ class Data:
 
 # Debug phase----------------
 # import memory_profiler
-# train_path = '../../Data/OpenSLR/data_voip_en/train'
+train_path = '../../Data/OpenSLR/data_voip_en/train'
 # # start = time.time()
-# data_train = Data(10, train_path,
-#                      'train_list.npy',
-#                       mode=3,
-#                       frame_overlap_flag=True,
-#                       overlap_ms=20,
-#                       ms_to_sample=25)
-# arr = data_train.next_batch()
-# print("Finished")
+
+data_train = Data(10, train_path,
+                     'train_list.npy',
+                      mode=3,
+                      frame_overlap_flag=True,
+                      overlap_ms=20,
+                      ms_to_sample=25)
+arr = data_train.next_batch()
+print("Finished")

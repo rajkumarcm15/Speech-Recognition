@@ -42,7 +42,7 @@ momentum=0.9
 max_grad_norm = 10
 
 val_batch_size = 4
-epochs = 150
+epochs = 250
 
 #-----------Data Config-----------------
 
@@ -90,102 +90,123 @@ n_chars = len(data_train.charmap) + 1
 # frame_length = data_train.retain_fft
 frame_length = (data_train.mfcc_coeff/2)*3
 
-graph = tf.Graph()
-with graph.as_default():
-    # Graph creation
-    graph_start = time.time()
-    lr = tf.placeholder(dtype=tf.float32, shape=[])
-    keep_prob = tf.placeholder(dtype=tf.float32, shape=[])
-    seq_inputs = tf.placeholder(tf.float32, shape=[None,batch_size,frame_length], name="sequence_inputs")
-    seq_lens = tf.placeholder(shape=[batch_size],dtype=tf.int32)
-    seq_inputs = seq_bn(seq_inputs,seq_lens)
 
-    initializer = tf.truncated_normal_initializer(mean=0,stddev=0.1)
+def encoder(seq_inputs,seq_lens,add_dropout,keep_prob,batch_normalise):
+    initializer = tf.truncated_normal_initializer(mean=0, stddev=0.1)
     forward = tf.nn.rnn_cell.LSTMCell(num_units=num_units,
-                                      #num_proj = hidden_size,
+                                      # num_proj = hidden_size,
                                       use_peepholes=use_peephole,
                                       initializer=initializer,
                                       state_is_tuple=True)
-    forward = tf.nn.rnn_cell.DropoutWrapper(cell=forward,output_keep_prob=keep_prob)
+    if add_dropout:
+        forward = tf.nn.rnn_cell.DropoutWrapper(cell=forward, output_keep_prob=keep_prob)
+
     forward = tf.nn.rnn_cell.MultiRNNCell([forward] * n_layers, state_is_tuple=True)
 
     backward = tf.nn.rnn_cell.LSTMCell(num_units=num_units,
-                                       #num_proj= hidden_size,
+                                       # num_proj= hidden_size,
                                        use_peepholes=use_peephole,
                                        initializer=initializer,
                                        state_is_tuple=True)
-    backward = tf.nn.rnn_cell.DropoutWrapper(cell=backward, output_keep_prob=keep_prob)
+    if add_dropout:
+        backward = tf.nn.rnn_cell.DropoutWrapper(cell=backward, output_keep_prob=keep_prob)
+
     backward = tf.nn.rnn_cell.MultiRNNCell([backward] * n_layers, state_is_tuple=True)
 
-    [fw_out,bw_out], _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=forward, cell_bw=backward, inputs=seq_inputs,
-                                                         time_major=True, dtype=tf.float32,
-                                                         sequence_length=tf.cast(seq_lens,tf.int64))
+    [fw_out, bw_out], _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=forward, cell_bw=backward, inputs=seq_inputs,
+                                                          time_major=True, dtype=tf.float32,
+                                                          sequence_length=tf.cast(seq_lens, tf.int64))
 
-    # Batch normalize forward output
-    fw_out = tf.transpose(fw_out,[1,0,2])
-    mew,var_ = tf.nn.moments(fw_out,axes=[0])
-    fw_out = tf.nn.batch_normalization(fw_out,mew,var_,0.1,1,1e-6)
+    if batch_normalise:
+        # Batch normalize forward output
+        fw_out = tf.transpose(fw_out, [1, 0, 2])
+        mew, var_ = tf.nn.moments(fw_out, axes=[0])
+        fw_out = tf.nn.batch_normalization(fw_out, mew, var_, 0.1, 1, 1e-6)
 
-    # Batch normalize backward output
-    bw_out = tf.transpose(bw_out,[1,0,2])
-    mew,var_ = tf.nn.moments(bw_out,axes=[0])
-    bw_out = tf.nn.batch_normalization(bw_out,mew,var_,0.1,1,1e-6)
+        # Batch normalize backward output
+        bw_out = tf.transpose(bw_out, [1, 0, 2])
+        mew, var_ = tf.nn.moments(bw_out, axes=[0])
+        bw_out = tf.nn.batch_normalization(bw_out, mew, var_, 0.1, 1, 1e-6)
 
-    fw_out = tf.reshape(fw_out,[-1,hidden_size])
-    bw_out = tf.reshape(bw_out,[-1,hidden_size])
+        fw_out = tf.reshape(fw_out, [-1, hidden_size])
+        bw_out = tf.reshape(bw_out, [-1, hidden_size])
 
-    # Linear Layer params
-    # W_fw = tf.Variable(tf.truncated_normal(shape=[hidden_size,n_chars],stddev=np.sqrt(2.0 / (hidden_size))))
-    # W_bw = tf.Variable(tf.truncated_normal(shape=[hidden_size,n_chars],stddev=np.sqrt(2.0 / (hidden_size))))
-    W_fw = tf.Variable(tf.truncated_normal(shape=[hidden_size, n_chars], stddev=np.sqrt(2.0 / (2*hidden_size))))
-    W_bw = tf.Variable(tf.truncated_normal(shape=[hidden_size, n_chars], stddev=np.sqrt(2.0 / (2*hidden_size))))
-    b_out = tf.constant(0.1,shape=[n_chars])
+    # Linear Layer parameters
+    W_fw = tf.Variable(tf.truncated_normal(shape=[hidden_size, n_chars], stddev=np.sqrt(2.0 / (2 * hidden_size))))
+    W_bw = tf.Variable(tf.truncated_normal(shape=[hidden_size, n_chars], stddev=np.sqrt(2.0 / (2 * hidden_size))))
+    b_out = tf.constant(0.1, shape=[n_chars])
 
     # Perform an affine transformation
-    logits = tf.add(tf.add(tf.matmul(fw_out,W_fw),tf.matmul(bw_out,W_bw)),b_out)
-    logits = tf.reshape(logits,[-1,batch_size,n_chars])
+    logits = tf.add(tf.add(tf.matmul(fw_out, W_fw), tf.matmul(bw_out, W_bw)), b_out)
+    logits = tf.reshape(logits, [-1, batch_size, n_chars])
 
+    return logits
+
+def decoder(logits,seq_lens):
     # Use CTC Beam Search Decoder to decode pred string from the prob map
     decoded, log_prob = tf.nn.ctc_beam_search_decoder(logits, seq_lens)
+    return decoded, log_prob
 
-    # Target params
-    indices = tf.placeholder(dtype=tf.int64, shape=[None,2])
-    values = tf.placeholder(dtype=tf.int32, shape=[None])
-    shape = tf.placeholder(dtype=tf.int64,shape=[2])
-    # Make targets
-    targets = tf.SparseTensor(indices,values,shape)
-
+def compute_loss(logits,decoded,targets,seq_lens):
     # Compute Loss
     loss = tf.reduce_mean(tf.nn.ctc_loss(logits, targets, seq_lens))
+
     # Compute error rate based on edit distance
     """
     Debugging Phase---------------------
     """
     predicted = tf.to_int32(decoded[0])
-    # predicted = decoded[0].
-
-
     "-----------------------------------"
-    error_rate = tf.reduce_sum(tf.edit_distance(predicted,targets,normalize=False))/ \
-		 tf.to_float(tf.size(targets.values))    
 
+    error_rate = tf.reduce_sum(tf.edit_distance(predicted, targets, normalize=False)) / \
+                 tf.to_float(tf.size(targets.values))
+
+    return loss, error_rate
+
+def train(loss,max_grad_norm,lr):
     tvars = tf.trainable_variables()
-    grad, _ = tf.clip_by_global_norm(tf.gradients(loss,tvars),max_grad_norm)
-    optimizer = tf.train.MomentumOptimizer(learning_rate=lr,momentum=momentum)
-    train_step = optimizer.apply_gradients(zip(grad,tvars))
-    graph_end = time.time()
-    print("Time elapsed for creating graph: %.3f"%(round(graph_end-graph_start,3)))
-    # steps per epoch
-    start_time = 0
-    steps = int(np.ceil(len(data_train.files)/batch_size))
+    grad, _ = tf.clip_by_global_norm(tf.gradients(loss, tvars), max_grad_norm)
 
-    loss_tr = []
-    log_tr = []
-    loss_vl = []
-    log_vl = []
-    err_tr = []
-    err_vl = []
+    optimizer = tf.train.MomentumOptimizer(learning_rate=lr, momentum=momentum)
+    train_step = optimizer.apply_gradients(zip(grad, tvars))
+    return train_step
+
+graph = tf.Graph()
+with graph.as_default():
     with tf.Session(config=config) as sess:
+
+        # Graph creation
+        graph_start = time.time()
+        keep_prob = tf.placeholder(dtype=tf.float32, shape=[])
+        seq_inputs = tf.placeholder(tf.float32, shape=[None, batch_size, frame_length], name="sequence_inputs")
+        seq_lens = tf.placeholder(shape=[batch_size], dtype=tf.int32)
+        seq_inputs = seq_bn(seq_inputs, seq_lens)
+        # Target params
+        indices = tf.placeholder(dtype=tf.int64, shape=[None, 2])
+        values = tf.placeholder(dtype=tf.int32, shape=[None])
+        shape = tf.placeholder(dtype=tf.int64, shape=[2])
+        # Make targets
+        targets = tf.SparseTensor(indices, values, shape)
+        lr = tf.placeholder(dtype=tf.float32, shape=[])
+
+        logits = encoder(seq_inputs,seq_lens,True,keep_prob,True)
+        decoded,log_prob = decoder(logits,seq_lens)
+        loss,error_rate = compute_loss(logits,decoded,targets,seq_lens)
+        graph_end = time.time()
+        print("Time elapsed for creating graph: %.3f" % (round(graph_end - graph_start, 3)))
+        train_step = train(loss,max_grad_norm,lr)
+
+        # steps per epoch
+        # start_time = 0
+        steps = int(np.ceil(len(data_train.files) / batch_size))
+
+        loss_tr = []
+        log_tr = []
+        loss_vl = []
+        log_vl = []
+        err_tr = []
+        err_vl = []
+
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(var_list=tf.trainable_variables())
         feed = None
