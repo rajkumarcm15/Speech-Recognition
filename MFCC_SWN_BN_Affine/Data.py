@@ -68,7 +68,7 @@ class Data:
         else:
             self.files = np.load(filelist_filename)
         self.safe_training_files = self.files
-        self.files = self.files[:5]
+        self.files = self.files[:50]
         self.n_files = len(self.files)
 
         # Assuming the whole batch would have the same properties
@@ -234,7 +234,7 @@ class Data:
         count = 0
         # ---------------------------------------------
 
-        for f in range(s_i,e_i+1):
+        for f in range(s_i,e_i):
             # Training data
             # (self, time_signal, frame_overlap_flag, mode)
             temp_data, n_frames = self.get_featvec(wavfile.read(join(file_path, self.files[f]))[1],
@@ -256,6 +256,15 @@ class Data:
             # Indices made for SparseTensor
             temp_indices = np.zeros([t_len, 2])  # 2 -> 2d indices
             b_id = (th_id*data_thread)+count
+            """
+            Debug------------------------------
+            """
+            print("\nb_id: %d, file: %s"%(b_id,join(file_path, self.files[f])))
+            print("transcript: %s \n"%temp)
+            """
+            End of debug-----------------------
+            """
+
             temp_indices[:, 0] = b_id
             temp_indices[:, 1] = range(t_len)
             targ_indices.append(temp_indices)
@@ -311,11 +320,15 @@ class Data:
         rem_data_lth = self.batch - (data_thread*(n_threads-1))
         threads = []
         for p in range(n_threads):
-            s_i = self.b_id + (data_thread*p)
+            if (self.b_id + self.batch) >= self.n_files:
+                self.b_id = 0
+            s_i = self.b_id
             if rem_data_lth != 0 and p == n_threads-1:
-                e_i = s_i + (rem_data_lth - 1)
+                e_i = s_i + rem_data_lth
             else:
-                e_i = s_i + (data_thread-1)
+                e_i = s_i + data_thread
+            # update the self.b_id
+            self.b_id = e_i
             threads.append(pool.apply_async(self.get_train_targ_data,args=(file_path, charmap, noise_types,
                                                                            frame_overlap_flag, s_i, e_i,p,
                                                                            data_thread)))
@@ -378,8 +391,8 @@ class Data:
 # Debug phase----------------
 # import memory_profiler
 train_path = '../../Data/OpenSLR/data_voip_en/train'
-# # start = time.time()
-
+# # # start = time.time()
+#
 data_train = Data(10, train_path,
                      'train_list.npy',
                       mode=3,
