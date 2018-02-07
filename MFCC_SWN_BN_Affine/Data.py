@@ -256,14 +256,14 @@ class Data:
             # Indices made for SparseTensor
             temp_indices = np.zeros([t_len, 2])  # 2 -> 2d indices
             b_id = (th_id*data_thread)+count
-            """
-            Debug------------------------------
-            """
-            print("\nb_id: %d, file: %s"%(b_id,join(file_path, self.files[f])))
-            print("transcript: %s \n"%temp)
-            """
-            End of debug-----------------------
-            """
+            # """
+            # Debug------------------------------
+            # """
+            # print("\nb_id: %d, file: %s"%(b_id,join(file_path, self.files[f])))
+            # print("transcript: %s \n"%temp)
+            # """
+            # End of debug-----------------------
+            # """
 
             temp_indices[:, 0] = b_id
             temp_indices[:, 1] = range(t_len)
@@ -320,8 +320,14 @@ class Data:
         rem_data_lth = self.batch - (data_thread*(n_threads-1))
         threads = []
         for p in range(n_threads):
-            if (self.b_id + self.batch) >= self.n_files:
-                self.b_id = 0
+
+            if p == n_threads-1:
+                if (self.b_id+rem_data_lth) >= self.n_files:
+                    self.b_id = 0
+            else:
+                if (self.b_id+data_thread) >= self.n_files:
+                    self.b_id = 0
+
             s_i = self.b_id
             if rem_data_lth != 0 and p == n_threads-1:
                 e_i = s_i + rem_data_lth
@@ -329,6 +335,13 @@ class Data:
                 e_i = s_i + data_thread
             # update the self.b_id
             self.b_id = e_i
+            # """
+            # Debug start---------------
+            # """
+            # print("s_i: %d, e_i: %d"%(s_i,e_i))
+            # """
+            # Debug end-----------------
+            # """
             threads.append(pool.apply_async(self.get_train_targ_data,args=(file_path, charmap, noise_types,
                                                                            frame_overlap_flag, s_i, e_i,p,
                                                                            data_thread)))
@@ -390,14 +403,14 @@ class Data:
 
 # Debug phase----------------
 # import memory_profiler
-train_path = '../../Data/OpenSLR/data_voip_en/train'
+# train_path = '../../Data/OpenSLR/data_voip_en/train'
 # # # start = time.time()
 #
-data_train = Data(10, train_path,
-                     'train_list.npy',
-                      mode=3,
-                      frame_overlap_flag=True,
-                      overlap_ms=20,
-                      ms_to_sample=25)
-arr = data_train.next_batch()
-print("Finished")
+# data_train = Data(10, train_path,
+#                      'train_list.npy',
+#                       mode=3,
+#                       frame_overlap_flag=True,
+#                       overlap_ms=20,
+#                       ms_to_sample=25)
+# arr = data_train.next_batch()
+# print("Finished")
