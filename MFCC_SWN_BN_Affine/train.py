@@ -33,7 +33,7 @@ train_path = '../../Data/OpenSLR/data_voip_en/train'
 val_path = '../../Data/OpenSLR/data_voip_en/dev'
 
 #-----------RNN Configuration-----------
-batch_size = 4
+batch_size = 50
 use_peephole = True
 n_layers = 1
 hidden_size = 250
@@ -41,7 +41,7 @@ num_units = hidden_size
 momentum=0.9
 max_grad_norm = 10
 
-val_batch_size = 4
+val_batch_size = 50
 epochs = 250
 
 #-----------Data Config-----------------
@@ -231,31 +231,31 @@ with graph.as_default():
                     else:
                         _lr_ = 1e-6
 
-                    if epoch == 1:
-                        train_data, transcript, \
-                        targ_indices, targ_values, \
-                        targ_shape, n_frames = data_train.next_batch()
-                        n_frames = np.reshape(n_frames,[-1])
-                        feed = {seq_inputs: train_data, indices:targ_indices,
-                                values:targ_values, shape:targ_shape,
-                                seq_lens:n_frames,lr:_lr_,keep_prob:0.7}
+
+                    train_data, transcript, \
+                    targ_indices, targ_values, \
+                    targ_shape, n_frames = data_train.next_batch()
+                    n_frames = np.reshape(n_frames,[-1])
+                    feed = {seq_inputs: train_data, indices:targ_indices,
+                            values:targ_values, shape:targ_shape,
+                            seq_lens:n_frames,lr:_lr_,keep_prob:0.7}
 
                     # Evaluate loss value, decoded transcript, and log probability
                     _,loss_val,deco,l_pr,err_rt_tr = sess.run([train_step,loss,decoded,log_prob,error_rate],
                                                             feed_dict=feed)
                     loss_tr.append(loss_val)
                     log_tr.append(l_pr)
-                    err_tr.append(err_rt_tr)
+                    err_tr.append(err_rt_tr) 
 
-                    if epoch == 1:
-                        # On validation set
-                        val_data, val_transcript, \
-                        targ_indices, targ_values, \
-                        targ_shape, n_frames = data_val.next_batch()
-                        n_frames = np.reshape(n_frames, [-1])
-                        feed = {seq_inputs: val_data, indices: targ_indices,
-                                values: targ_values, shape: targ_shape,
-                                seq_lens: n_frames,lr:_lr_,keep_prob:1}
+
+                    # On validation set
+                    val_data, val_transcript, \
+                    targ_indices, targ_values, \
+                    targ_shape, n_frames = data_val.next_batch()
+                    n_frames = np.reshape(n_frames, [-1])
+                    feed = {seq_inputs: val_data, indices: targ_indices,
+                            values: targ_values, shape: targ_shape,
+                            seq_lens: n_frames,lr:_lr_,keep_prob:1}
 
                     vl_loss, l_val_pr, err_rt_vl = sess.run([loss, log_prob, error_rate], feed_dict=feed)
 

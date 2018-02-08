@@ -406,7 +406,7 @@ class Data:
 # train_path = '../../Data/OpenSLR/data_voip_en/train'
 # # # start = time.time()
 #
-# data_train = Data(10, train_path,
+# data_train = Data(50, train_path,
 #                      'train_list.npy',
 #                       mode=3,
 #                       frame_overlap_flag=True,
