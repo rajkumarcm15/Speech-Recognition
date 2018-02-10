@@ -52,7 +52,7 @@ class Data:
                  mode,
                  mfcc_coeff = 26,
                  frame_overlap_flag=False,
-                 ms_to_sample=20,
+                 ms_to_sample=25,
                  overlap_ms=10):
 
         self.batch = batch_size
@@ -81,7 +81,7 @@ class Data:
         else:
             self.retain_fft = (self.frame_length / 2) + 1
         self.overlap = self.frame_rate / 1000 * self.overlap_ms
-        self.default_window = np.hamming(self.frame_length + self.overlap)
+        # self.default_window = np.hamming(self.frame_length + self.overlap)
 
         # Build char map for dense representation of transcripts
         chars = []
@@ -168,9 +168,15 @@ class Data:
             data = np.concatenate([data, delta, ddelta], axis=1)
         elif mode == 3:
             # Compute Mel-Frequency Cepstrum Coefficients
+            # Previously nfft was set to self.frame_length, which is incorrect.
+            # nfft is the analysis window, which is not the same as frame length
+            # and the recommended value as per
+            # http://practicalcryptography.com/miscellaneous/machine-learning/guide-mel-frequency-cepstral-coefficients-mfccs/
+            # is 512, so it has been corrected to 512
+
             data = mfcc(time_signal, samplerate=self.frame_rate, winlen=ms_to_sample,
                         winstep=overlap_ms, numcep = self.mfcc_coeff/2, nfilt=self.mfcc_coeff,
-                        nfft=self.frame_length, appendEnergy=True, winfunc=np.hamming)
+                        nfft=512, appendEnergy=True, winfunc=np.hamming)
             delta = self.get_delta(data)
             ddelta = self.get_delta(delta)
             data = np.concatenate([data, delta, ddelta], axis=1)
@@ -403,14 +409,14 @@ class Data:
 
 # Debug phase----------------
 # import memory_profiler
-# train_path = '../../Data/OpenSLR/data_voip_en/train'
-# # # start = time.time()
-#
-# data_train = Data(50, train_path,
-#                      'train_list.npy',
-#                       mode=3,
-#                       frame_overlap_flag=True,
-#                       overlap_ms=20,
-#                       ms_to_sample=25)
-# arr = data_train.next_batch()
-# print("Finished")
+train_path = '../../Data/OpenSLR/data_voip_en/train'
+# start = time.time()
+
+data_train = Data(50, train_path,
+                     'train_list.npy',
+                      mode=3,
+                      frame_overlap_flag=True,
+                      overlap_ms=10,
+                      ms_to_sample=25)
+arr = data_train.next_batch()
+print("Finished")
