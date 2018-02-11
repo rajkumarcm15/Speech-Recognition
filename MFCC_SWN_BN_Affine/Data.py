@@ -177,9 +177,9 @@ class Data:
             data = mfcc(time_signal, samplerate=self.frame_rate, winlen=ms_to_sample,
                         winstep=overlap_ms, numcep = self.mfcc_coeff/2, nfilt=self.mfcc_coeff,
                         nfft=512, appendEnergy=True, winfunc=np.hamming)
-            delta = self.get_delta(data)
-            ddelta = self.get_delta(delta)
-            data = np.concatenate([data, delta, ddelta], axis=1)
+            #delta = self.get_delta(data)
+            #ddelta = self.get_delta(delta)
+            #data = np.concatenate([data, delta, ddelta], axis=1)
         #gc.collect()
 
         return data, data.shape[0]
@@ -409,14 +409,14 @@ class Data:
 
 # Debug phase----------------
 # import memory_profiler
-train_path = '../../Data/OpenSLR/data_voip_en/train'
-# start = time.time()
-
-data_train = Data(50, train_path,
-                     'train_list.npy',
-                      mode=3,
-                      frame_overlap_flag=True,
-                      overlap_ms=10,
-                      ms_to_sample=25)
-arr = data_train.next_batch()
-print("Finished")
+# train_path = '../../Data/OpenSLR/data_voip_en/train'
+# # start = time.time()
+#
+# data_train = Data(50, train_path,
+#                      'train_list.npy',
+#                       mode=3,
+#                       frame_overlap_flag=True,
+#                       overlap_ms=10,
+#                       ms_to_sample=25)
+# arr = data_train.next_batch()
+# print("Finished")
